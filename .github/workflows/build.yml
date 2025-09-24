@@ -66,9 +66,14 @@ jobs:
         uses: anchore/scan-action@v7
         with:
           image: kube-pgadmin4-azure:${{ github.sha }}-${{ matrix.suffix }}
-          format: sarif
-          output_path: grype-results-${{ matrix.suffix }}.sarif
-          fail_on: 'HIGH,CRITICAL'
+          fail-build: true
+          severity-cutoff: high
+          output-format: table,sarif
+          output-file: grype-results-${{ matrix.suffix }}
+
+      - name: Print failed CVEs (table)
+        if: always()
+        run: cat grype-results-${{ matrix.suffix }}.table || echo "No table file found"
 
       - name: Upload scan results artifact
         if: always()
