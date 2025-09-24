@@ -13,7 +13,8 @@ permissions:
 jobs:
   build-and-scan:
     name: Build and scan per-platform
-    runs-on: ubuntu-latest
+    #runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runs_on }}
     environment: Build
     strategy:
       fail-fast: false
@@ -21,15 +22,14 @@ jobs:
         include:
           - platform: linux/amd64
             suffix: amd64
+            runs_on: ubuntu-latest
           - platform: linux/arm64
             suffix: arm64
+            runs_on: ubuntu-latest-arm64
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
 
       - name: Create builder
         uses: docker/setup-buildx-action@v3
@@ -44,6 +44,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set short SHA
+        run: echo "SHORT_SHA=${GITHUB_SHA::8}" >> $GITHUB_ENV
+
       - name: Build image for ${{ matrix.platform }} and load
         uses: docker/build-push-action@v6
         with:
@@ -53,7 +56,7 @@ jobs:
           push: true
           load: true
           tags: |
-            ghcr.io/kangarookube/kube-pgadmin4-azure:${{ github.sha::8 }}-${{ matrix.suffix }}
+            ghcr.io/kangarookube/kube-pgadmin4-azure:${{ env.SHORT_SHA }}-${{ matrix.suffix }}
           secrets: |
             rhsm_user=${{ secrets.RHSM_USER }}
             rhsm_pass=${{ secrets.RHSM_PASS }}
@@ -65,7 +68,7 @@ jobs:
       - name: Scan image for CVEs (table)
         uses: anchore/scan-action@v7
         with:
-          image: ghcr.io/kangarookube/kube-pgadmin4-azure:${{ github.sha::8 }}-${{ matrix.suffix }}
+          image: ghcr.io/kangarookube/kube-pgadmin4-azure:${{ env.SHORT_SHA }}-${{ matrix.suffix }}
           fail-build: false
           only-fixed: false
           severity-cutoff: medium
@@ -79,7 +82,7 @@ jobs:
       - name: Scan image for CVEs (SARIF)
         uses: anchore/scan-action@v7
         with:
-          image: ghcr.io/kangarookube/kube-pgadmin4-azure:${{ github.sha::8 }}-${{ matrix.suffix }}
+          image: ghcr.io/kangarookube/kube-pgadmin4-azure:${{ env.SHORT_SHA }}-${{ matrix.suffix }}
           fail-build: true
           only-fixed: true
           severity-cutoff: high
@@ -117,7 +120,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push multi-arch manifest for latest and 9 (only on merge to main)
+      - name: Create and push multi-arch manifest for latest and 9 (only on merge to main)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/manifest-create-push-action@v2
         with:
@@ -125,7 +128,7 @@ jobs:
             ghcr.io/kangarookube/kube-pgadmin4-azure:latest
             ghcr.io/kangarookube/kube-pgadmin4-azure:9
           images: |
-            ghcr.io/kangarookube/kube-pgadmin4-azure:${{ github.sha::8 }}-${{ matrix.suffix }}
+            ghcr.io/kangarookube/kube-pgadmin4-azure:${{ env.SHORT_SHA }}-${{ matrix.suffix }}
 
       - name: Upload each SARIF scan result to Security tab
         if: always()
