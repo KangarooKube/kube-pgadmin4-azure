@@ -53,16 +53,15 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Scan image for CVEs
-        uses: aquasecurity/trivy-action@v0.19.0
+        uses: anchore/grype-action@v1
         with:
-          scan-type: image
-          scan-ref: ghcr.io/${{ github.repository_owner }}/kube-pgadmin4-azure:latest
+          image: ghcr.io/${{ github.repository_owner }}/kube-pgadmin4-azure:latest
           format: sarif
-          output: trivy-results.sarif
-          fail-on: 'HIGH,CRITICAL'
+          output_path: grype-results.sarif
+          fail_on: 'HIGH,CRITICAL'
 
-      - name: Upload Trivy scan results to GitHub Security tab
+      - name: Upload Grype scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
-          sarif_file: 'trivy-results.sarif'
+          sarif_file: 'grype-results.sarif
