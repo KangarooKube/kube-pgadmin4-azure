@@ -1,20 +1,28 @@
-name: Build and Push Docker Image
+name: Build, Scan and Push Multi-arch Image
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
-    branches:
-      - main
+    branches: [ main ]
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
-  build-and-push:
+  build-and-scan:
+    name: Build and scan per-platform
     runs-on: ubuntu-latest
-    environment: Build   
-    permissions:
-      contents: read
-      packages: write
+    environment: Build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            suffix: amd64
+          - platform: linux/arm64
+            suffix: arm64
 
     steps:
       - name: Checkout code
@@ -28,9 +36,6 @@ jobs:
         with:
           install: true
           driver: docker-container
-          driver-opts: |
-            image=moby/buildkit:master
-          buildkitd-flags: --debug
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -39,17 +44,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Docker image (multi-platform)
+      - name: Build image for ${{ matrix.platform }} and load
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platform }}
           push: false
           load: true
           tags: |
-            ghcr.io/kangarookube/kube-pgadmin4-azure:latest
-            ghcr.io/kangarookube/kube-pgadmin4-azure:${{ github.sha }}
+            kube-pgadmin4-azure:${{ github.sha }}-${{ matrix.suffix }}
           secrets: |
             rhsm_user=${{ secrets.RHSM_USER }}
             rhsm_pass=${{ secrets.RHSM_PASS }}
@@ -58,17 +62,47 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Scan image for CVEs
+      - name: Scan image for CVEs (Anchore/Grype)
         uses: anchore/scan-action@v7
         with:
-          image: ghcr.io/kangarookube/kube-pgadmin4-azure:latest
+          image: kube-pgadmin4-azure:${{ github.sha }}-${{ matrix.suffix }}
           format: sarif
-          output_path: grype-results.sarif
+          output_path: grype-results-${{ matrix.suffix }}.sarif
           fail_on: 'HIGH,CRITICAL'
-          
-      - name: Push Docker image
+
+      - name: Upload scan results artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: grype-results-${{ matrix.suffix }}.sarif
+          path: grype-results-${{ matrix.suffix }}.sarif
+
+  push-manifest:
+    name: Push multi-arch manifest (only if scans passed)
+    runs-on: ubuntu-latest
+    needs: build-and-scan
+    if: needs.build-and-scan.result == 'success'
+    environment: Build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create builder for push
+        uses: docker/setup-buildx-action@v3
+        with:
+          install: true
+          driver: docker-container
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push manifest (multi-arch)
         uses: docker/build-push-action@v5
-        if: success()
         with:
           context: .
           file: ./Dockerfile
@@ -84,8 +118,14 @@ jobs:
             PGADMIN_VERSION=9
           cache-from: type=gha
 
-      - name: Upload Grype scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
+      - name: (Optional) Upload combined scan artifacts
         if: always()
+        uses: actions/download-artifact@v4
         with:
-          sarif_file: 'grype-results.sarif'
+          path: ./scan-results
+
+      - name: Upload combined scan results to Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: './scan-results'
