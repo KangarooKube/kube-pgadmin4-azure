@@ -126,6 +126,7 @@ jobs:
           push: true
           tags: |
             ghcr.io/kangarookube/kube-pgadmin4-azure:latest
+            ghcr.io/kangarookube/kube-pgadmin4-azure:9
             ghcr.io/kangarookube/kube-pgadmin4-azure:${{ github.sha }}
           secrets: |
             rhsm_user=${{ secrets.RHSM_USER }}
@@ -134,14 +135,18 @@ jobs:
             PGADMIN_VERSION=9
           cache-from: type=gha
 
-      - name: (Optional) Upload combined scan artifacts
+      - name: Upload each SARIF scan result to Security tab
         if: always()
-        uses: actions/download-artifact@v4
-        with:
-          path: ./scan-results
-
-      - name: Upload combined scan results to Security tab
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: './scan-results'
+        run: |
+          for sarif in ./scan-results/**/*.sarif; do
+            echo "Uploading $sarif"
+            gh api \
+              --method POST \
+              -H "Accept: application/vnd.github+json" \
+              /repos/${{ github.repository }}/code-scanning/sarifs \
+              -F sarif=@$sarif \
+              -F commit_sha=${{ github.sha }} \
+              -F ref=${{ github.ref }}
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
