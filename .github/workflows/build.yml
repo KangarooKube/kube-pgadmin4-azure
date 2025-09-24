@@ -11,10 +11,20 @@ permissions:
   packages: write
 
 jobs:
+  set-short-sha:
+    name: Set short SHA
+    runs-on: ubuntu-latest
+    outputs:
+      short_sha: ${{ steps.set_sha.outputs.short_sha }}
+    steps:
+      - name: Set short SHA
+        id: set_sha
+        run: echo "short_sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+
   build-and-scan:
     name: Build and scan per-platform
-    #runs-on: ubuntu-latest
     runs-on: ${{ matrix.runs_on }}
+    needs: set-short-sha
     environment: Build
     strategy:
       fail-fast: false
@@ -44,9 +54,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set short SHA
-        run: echo "SHORT_SHA=${GITHUB_SHA::8}" >> $GITHUB_ENV
-
       - name: Build image for ${{ matrix.platform }} and load
         uses: docker/build-push-action@v6
         with:
@@ -56,7 +63,7 @@ jobs:
           push: true
           load: true
           tags: |
-            ghcr.io/kangarookube/kube-pgadmin4-azure:${{ env.SHORT_SHA }}-${{ matrix.suffix }}
+            ghcr.io/kangarookube/kube-pgadmin4-azure:${{ needs.set-short-sha.outputs.short_sha }}-${{ matrix.suffix }}
           secrets: |
             rhsm_user=${{ secrets.RHSM_USER }}
             rhsm_pass=${{ secrets.RHSM_PASS }}
@@ -68,7 +75,7 @@ jobs:
       - name: Scan image for CVEs (table)
         uses: anchore/scan-action@v7
         with:
-          image: ghcr.io/kangarookube/kube-pgadmin4-azure:${{ env.SHORT_SHA }}-${{ matrix.suffix }}
+          image: ghcr.io/kangarookube/kube-pgadmin4-azure:${{ needs.set-short-sha.outputs.short_sha }}-${{ matrix.suffix }}
           fail-build: false
           only-fixed: false
           severity-cutoff: medium
@@ -82,7 +89,7 @@ jobs:
       - name: Scan image for CVEs (SARIF)
         uses: anchore/scan-action@v7
         with:
-          image: ghcr.io/kangarookube/kube-pgadmin4-azure:${{ env.SHORT_SHA }}-${{ matrix.suffix }}
+          image: ghcr.io/kangarookube/kube-pgadmin4-azure:${{ needs.set-short-sha.outputs.short_sha }}-${{ matrix.suffix }}
           fail-build: true
           only-fixed: true
           severity-cutoff: high
@@ -99,9 +106,17 @@ jobs:
   push-manifest:
     name: Push multi-arch manifest (only if scans passed)
     runs-on: ubuntu-latest
-    needs: build-and-scan
+    needs: [build-and-scan, set-short-sha]
     if: needs.build-and-scan.result == 'success'
     environment: Build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            suffix: amd64
+          - platform: linux/arm64
+            suffix: arm64
 
     steps:
       - name: Checkout code
@@ -128,7 +143,7 @@ jobs:
             ghcr.io/kangarookube/kube-pgadmin4-azure:latest
             ghcr.io/kangarookube/kube-pgadmin4-azure:9
           sources: |
-            ghcr.io/kangarookube/kube-pgadmin4-azure:${{ env.SHORT_SHA }}-${{ matrix.suffix }}
+            ghcr.io/kangarookube/kube-pgadmin4-azure:${{ needs.set-short-sha.outputs.short_sha }}-${{ matrix.suffix }}
 
       - name: Upload each SARIF scan result to Security tab
         if: always()
