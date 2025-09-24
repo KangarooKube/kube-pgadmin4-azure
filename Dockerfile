@@ -25,9 +25,9 @@ RUN --mount=type=secret,id=rhsm_user \
       s390x*) CR_ARCH="s390x" ;; \
       *) CR_ARCH="${TARGETARCH}" ;; \
     esac && \
-    echo "Enabling CodeReady repo for arch=${CR_ARCH} (TARGETARCH=${TARGETARCH} TARGETVARIANT=${TARGETVARIANT})" && \
-    subscription-manager repos --enable=codeready-builder-for-rhel-10-${CR_ARCH}-rpms
-RUN dnf -y install --assumeyes --nogpgcheck \
+    echo "Enabling repo for arch=${CR_ARCH} (TARGETARCH=${TARGETARCH} TARGETVARIANT=${TARGETVARIANT})" && \
+    subscription-manager repos --enable=codeready-builder-for-rhel-10-${CR_ARCH}-rpms && \
+    dnf -y install --assumeyes --nogpgcheck \
     https://download.postgresql.org/pub/repos/yum/reporpms/EL-10-${CR_ARCH}/pgdg-redhat-repo-latest.noarch.rpm && \
     dnf -y update && \
     dnf -y install --assumeyes \
