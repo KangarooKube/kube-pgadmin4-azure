@@ -17,8 +17,10 @@ RUN --mount=type=secret,id=rhsm_user \
     subscription-manager register --username=${RHSM_USER} --password=${RHSM_PASS} && \
     # Map build TARGETARCH -> repo arch string (amd64 -> x86_64, arm64 -> aarch64)
     case "${TARGETARCH}${TARGETVARIANT:+-${TARGETVARIANT}}" in \
-      amd64*|x86_64*) CR_ARCH="x86_64" ;; \
-      arm64*|aarch64*) CR_ARCH="aarch64" ;; \
+      amd64*) CR_ARCH="x86_64" ;; \
+      x86_64*) CR_ARCH="x86_64" ;; \
+      arm64*) CR_ARCH="aarch64" ;; \
+      aarch64*) CR_ARCH="aarch64" ;; \
       ppc64le*) CR_ARCH="ppc64le" ;; \
       s390x*) CR_ARCH="s390x" ;; \
       *) CR_ARCH="${TARGETARCH}" ;; \
