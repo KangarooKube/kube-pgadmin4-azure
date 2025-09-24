@@ -62,18 +62,27 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Scan image for CVEs (Anchore/Grype)
+      - name: Scan image for CVEs (table)
+        uses: anchore/scan-action@v7
+        with:
+          image: kube-pgadmin4-azure:${{ github.sha }}-${{ matrix.suffix }}
+          fail-build: false
+          severity-cutoff: medium
+          output-format: table
+          output-file: grype-results-${{ matrix.suffix }}.table
+
+      - name: Print failed CVEs (table)
+        if: always()
+        run: cat grype-results-${{ matrix.suffix }}.table || echo "No table file found"
+
+      - name: Scan image for CVEs (SARIF)
         uses: anchore/scan-action@v7
         with:
           image: kube-pgadmin4-azure:${{ github.sha }}-${{ matrix.suffix }}
           fail-build: true
           severity-cutoff: high
-          output-format: table,sarif
-          output-file: grype-results-${{ matrix.suffix }}
-
-      - name: Print failed CVEs (table)
-        if: always()
-        run: cat grype-results-${{ matrix.suffix }}.table || echo "No table file found"
+          output-format: sarif
+          output-file: grype-results-${{ matrix.suffix }}.sarif
 
       - name: Upload scan results artifact
         if: always()
