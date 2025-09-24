@@ -43,8 +43,8 @@ jobs:
           push: false
           load: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/kube-pgadmin4-azure:latest
-            ghcr.io/${{ github.repository_owner }}/kube-pgadmin4-azure:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner.toLower() }}/kube-pgadmin4-azure:latest
+            ghcr.io/${{ github.repository_owner.toLower() }}/kube-pgadmin4-azure:${{ github.sha }}
           secrets: |
             rhsm_user=${{ secrets.RHSM_USER }}
             rhsm_pass=${{ secrets.RHSM_PASS }}
