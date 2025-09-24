@@ -54,7 +54,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Scan image for CVEs
-        uses: anchore/grype-action@v1
+        uses: anchore/scan-action@v7
         with:
           image: ghcr.io/${{ github.repository_owner }}/kube-pgadmin4-azure:latest
           format: sarif
