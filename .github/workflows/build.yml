@@ -53,7 +53,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Scan image for CVEs
-        uses: aquasecurity/trivy-action@v0.14.0
+        uses: aquasecurity/trivy-action@v0.19.0
         with:
           scan-type: image
           scan-ref: ghcr.io/${{ github.repository_owner }}/kube-pgadmin4-azure:latest
