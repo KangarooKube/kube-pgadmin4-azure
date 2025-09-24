@@ -34,13 +34,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push Docker image (multi-platform)
+      - name: Build Docker image (multi-platform)
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
-          push: true
+          push: false
+          load: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/kube-pgadmin4-azure:latest
             ghcr.io/${{ github.repository_owner }}/kube-pgadmin4-azure:${{ github.sha }}
@@ -59,6 +60,24 @@ jobs:
           format: sarif
           output_path: grype-results.sarif
           fail_on: 'HIGH,CRITICAL'
+          
+      - name: Push Docker image
+        uses: docker/build-push-action@v5
+        if: success()
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/kube-pgadmin4-azure:latest
+            ghcr.io/${{ github.repository_owner }}/kube-pgadmin4-azure:${{ github.sha }}
+          secrets: |
+            rhsm_user=${{ secrets.RHSM_USER }}
+            rhsm_pass=${{ secrets.RHSM_PASS }}
+          build-args: |
+            PGADMIN_VERSION=9
+          cache-from: type=gha
 
       - name: Upload Grype scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
