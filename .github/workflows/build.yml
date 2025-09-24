@@ -67,6 +67,7 @@ jobs:
         with:
           image: kube-pgadmin4-azure:${{ github.sha }}-${{ matrix.suffix }}
           fail-build: false
+          only-fixed: false
           severity-cutoff: medium
           output-format: table
           output-file: grype-results-${{ matrix.suffix }}.table
@@ -80,6 +81,7 @@ jobs:
         with:
           image: kube-pgadmin4-azure:${{ github.sha }}-${{ matrix.suffix }}
           fail-build: true
+          only-fixed: true
           severity-cutoff: high
           output-format: sarif
           output-file: grype-results-${{ matrix.suffix }}.sarif
