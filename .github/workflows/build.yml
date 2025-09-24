@@ -122,12 +122,12 @@ jobs:
 
       - name: Create and push multi-arch manifest for latest and 9 (only on merge to main)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: docker/manifest-create-push-action@v2
+        uses: int128/docker-manifest-create-action@v2
         with:
           tags: |
             ghcr.io/kangarookube/kube-pgadmin4-azure:latest
             ghcr.io/kangarookube/kube-pgadmin4-azure:9
-          images: |
+          sources: |
             ghcr.io/kangarookube/kube-pgadmin4-azure:${{ env.SHORT_SHA }}-${{ matrix.suffix }}
 
       - name: Upload each SARIF scan result to Security tab
