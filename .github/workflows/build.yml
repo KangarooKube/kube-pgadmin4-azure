@@ -109,15 +109,6 @@ jobs:
     needs: [build-and-scan, set-short-sha]
     if: needs.build-and-scan.result == 'success'
     environment: Build
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: linux/amd64
-            suffix: amd64
-          - platform: linux/arm64
-            suffix: arm64
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -143,8 +134,7 @@ jobs:
             ghcr.io/kangarookube/kube-pgadmin4-azure:latest
             ghcr.io/kangarookube/kube-pgadmin4-azure:9
           sources: |
-            ghcr.io/kangarookube/kube-pgadmin4-azure:${{ needs.set-short-sha.outputs.short_sha }}-${{ matrix.suffix }}
-
+            ghcr.io/kangarookube/kube-pgadmin4-azure:${{ needs.set-short-sha.outputs.short_sha }}-*
       - name: Upload each SARIF scan result to Security tab
         if: always()
         run: |
