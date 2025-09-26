@@ -216,8 +216,10 @@ __marimo__/
 .vscode/extensions.json
 .vscode/*.code-workspace
 
-# Local Dockerfile for testing
+# Local files for testing
 Dockerfile.local
+dockerlaunch.sh
+mod_passexec.py
 
 # Local diff folder for testing
 diffs/

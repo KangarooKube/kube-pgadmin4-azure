@@ -65,10 +65,10 @@ USER root
 RUN dnf -y update && \
     dnf -y upgrade && \
     dnf -y install --assumeyes --allowerasing \
-      python3 python3-pip python3-devel \
-      libffi-devel openssl-devel \
+      python3 python3-pip tzdata \
+      #libffi-devel openssl-devel \
       ca-certificates which wget unzip \
-      sqlite sqlite-devel curl \
+      sqlite postfix curl patch dos2unix \
       procps shadow-utils sudo bash krb5-libs && \
     dnf clean all && \
     dnf makecache
@@ -110,6 +110,16 @@ COPY --from=builder-ubi10 /venv /venv
 COPY --from=dpage-pgadmin4 /pgadmin4 /pgadmin4
 COPY --from=dpage-pgadmin4 /entrypoint.sh /entrypoint.sh
 
+COPY ./scripts/* /pgadmin4/
+
+COPY config_system.py /etc/pgadmin/config_system.py
+
+COPY add_entra_refresh_token_for_passexec.patch /tmp/add_entra_refresh_token_for_passexec.patch
+# Ensure patch file uses correct line endings and format before applying
+RUN dos2unix /tmp/add_entra_refresh_token_for_passexec.patch && \
+  patch -p1 -d /pgadmin4 < /tmp/add_entra_refresh_token_for_passexec.patch || (echo "Patch failed: not all hunks applied" && exit 1) && \
+  rm /tmp/add_entra_refresh_token_for_passexec.patch
+
 # Using postgres 18 client tools by default being the latest supported version
 RUN if [ -x "/usr/local/pgsql-18/psql" ]; then \
       ln -sf "/usr/local/pgsql-18/psql" /usr/bin/psql; \
@@ -122,11 +132,13 @@ RUN if [ -x "/usr/local/pgsql-18/psql" ]; then \
 # Create directories and user similar to upstream image
 RUN useradd -u 5050 -m -d /var/lib/pgadmin -s /sbin/nologin pgadmin || true && \
     mkdir -p /var/lib/pgadmin /var/log/pgadmin /var/lib/pgadmin/sessions /var/lib/pgadmin/storage /usr/local/pgsql /pgadmin4 && \
-    chown -R pgadmin:pgadmin /var/lib/pgadmin /var/log/pgadmin /var/lib/pgadmin/sessions /var/lib/pgadmin/storage /pgadmin4 && \
+    chown -R pgadmin:pgadmin /var/lib/pgadmin /var/log/pgadmin /var/lib/pgadmin/sessions /var/lib/pgadmin/storage /pgadmin4 /etc/pgadmin/config_system.py && \
     chmod 700 /var/lib/pgadmin && \
     chmod 700 /var/lib/pgadmin/sessions && \
     chmod 700 /var/lib/pgadmin/storage && \
-    chmod 700 /var/log/pgadmin
+    chmod 700 /var/log/pgadmin && \
+    chmod 700 /pgadmin4/* && \ 
+    chmod 500 /etc/pgadmin/config_system.py
 
 # Create per-version symlinks for psql and tools
 RUN if [ -x "/usr/local/pgsql-18/psql" ]; then \
@@ -140,9 +152,6 @@ RUN if [ -x "/usr/local/pgsql-18/psql" ]; then \
 EXPOSE 80 443
 WORKDIR /pgadmin4
 ENV PYTHONPATH=/pgadmin4
-
-# Set config options via env vars
-ENV PGADMIN_CONFIG_SERVER_MODE=True
 
 # switch to pgadmin user for runtime
 USER pgadmin

@@ -1,0 +1,28 @@
+diff --git a/pgadmin/utils/passexec.py b/pgadmin/utils/passexec.py
+--- a/pgadmin/utils/passexec.py
++++ b/pgadmin/utils/passexec.py
+@@ -11,7 +11,7 @@
+ from datetime import datetime, timedelta, timezone
+ from threading import Lock
+ 
+-from flask import current_app
++from flask import current_app, session
+ 
+ import config
+ from pgadmin.utils.driver import get_driver
+@@ -43,6 +43,15 @@
+         self.cmd = self.cmd.replace('%PORT%', str(self.port))
+         self.cmd = self.cmd.replace('%USERNAME%',
+                                     driver.qtIdent(None,self.username))
++        # Add token replacement if OAuth2 token is available
++        token_info = session.get('oauth2_token')
++        if token_info:
++            if 'access_token' in token_info:
++                self.cmd = self.cmd.replace('%ACCESSTOKEN%', token_info['access_token'])
++            # Only replace refresh token if explicitly enabled in config
++            if getattr(config, 'ENABLE_SERVER_PASS_EXEC_REFRESH_TOKEN', False):
++                if 'refresh_token' in token_info:
++                    self.cmd = self.cmd.replace('%REFRESHTOKEN%', token_info['refresh_token'])
+         with self.lock:
+             if not self.password or self.is_expired():
+                 if not self.cmd:
