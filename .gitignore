@@ -205,3 +205,19 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Local history for Visual Studio Code
+.history/
+
+# Local settings for VS Code
+.vscode/settings.json
+.vscode/tasks.json
+.vscode/launch.json
+.vscode/extensions.json
+.vscode/*.code-workspace
+
+# Local Dockerfile for testing
+Dockerfile.local
+
+# Local diff folder for testing
+diffs/

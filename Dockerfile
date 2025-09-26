@@ -1,6 +1,6 @@
 # Build pgAdmin4 on UBI10 and includes PostgreSQL client binaries
 # Usage:
-#  build --build-arg PGADMIN_VERSION=9.8 -t kube-pgadmin4-azure:ubi10 .
+#  build --build-arg PGADMIN_VERSION=9 -t kube-pgadmin4-azure:ubi10 .
 
 ARG PGADMIN_VERSION=9
 
@@ -36,7 +36,8 @@ RUN --mount=type=secret,id=rhsm_user \
       postgresql15 postgresql15-contrib \
       postgresql16 postgresql16-contrib \
       postgresql17 postgresql17-contrib \
-      postgresql17-devel && \
+      postgresql18 postgresql18-contrib \
+      postgresql18-devel && \
     dnf -y install --assumeyes --allowerasing \
       python3 python3-pip python3-devel \
       libffi-devel openssl-devel \
@@ -45,7 +46,7 @@ RUN --mount=type=secret,id=rhsm_user \
       procps shadow-utils sudo bash krb5-devel && \
     dnf clean all && \
     dnf makecache && \
-    ln -s /usr/pgsql-17/bin/pg_config /usr/bin/pg_config
+    ln -s /usr/pgsql-18/bin/pg_config /usr/bin/pg_config
 
 RUN curl https://raw.githubusercontent.com/pgadmin-org/pgadmin4/refs/heads/master/requirements.txt -o /tmp/requirements.txt && \
     python3 -m venv --system-site-packages --without-pip /venv && \
@@ -57,7 +58,6 @@ RUN curl https://raw.githubusercontent.com/pgadmin-org/pgadmin4/refs/heads/maste
 # env & app builder steps are intentionally simple here since we will pip-install pgadmin in final image
 # Final runtime image based on UBI10
 FROM registry.access.redhat.com/ubi10/ubi:latest AS pgadmin-ubi10
-ARG PGADMIN_VERSION
 
 USER root
 
@@ -99,18 +99,24 @@ COPY --from=builder-ubi10 /usr/pgsql-17/bin/pg_dumpall /usr/local/pgsql-17/
 COPY --from=builder-ubi10 /usr/pgsql-17/bin/pg_restore /usr/local/pgsql-17/
 COPY --from=builder-ubi10 /usr/pgsql-17/bin/psql /usr/local/pgsql-17/
 
-COPY --from=builder-ubi10 /usr/pgsql-17/lib/libpq.so.5 /usr/lib64/
+COPY --from=builder-ubi10 /usr/pgsql-18/bin/pg_dump /usr/local/pgsql-18/
+COPY --from=builder-ubi10 /usr/pgsql-18/bin/pg_dumpall /usr/local/pgsql-18/
+COPY --from=builder-ubi10 /usr/pgsql-18/bin/pg_restore /usr/local/pgsql-18/
+COPY --from=builder-ubi10 /usr/pgsql-18/bin/psql /usr/local/pgsql-18/
+
+COPY --from=builder-ubi10 /usr/pgsql-18/lib/libpq.so.5 /usr/lib64/
 COPY --from=builder-ubi10 /venv /venv
 
 COPY --from=dpage-pgadmin4 /pgadmin4 /pgadmin4
 COPY --from=dpage-pgadmin4 /entrypoint.sh /entrypoint.sh
 
-RUN if [ -x "/usr/local/pgsql-17/psql" ]; then \
-      ln -sf "/usr/local/pgsql-17/psql" /usr/bin/psql; \
-      ln -sf "/usr/local/pgsql-17/pg_dump" /usr/bin/pg_dump; \
-      ln -sf "/usr/local/pgsql-17/pg_dumpall" /usr/bin/pg_dumpall; \
-      ln -sf "/usr/local/pgsql-17/pg_restore" /usr/bin/pg_restore; \
-      ln -sf "/usr/local/pgsql-17/pg_config" /usr/bin/pg_config; \
+# Using postgres 18 client tools by default being the latest supported version
+RUN if [ -x "/usr/local/pgsql-18/psql" ]; then \
+      ln -sf "/usr/local/pgsql-18/psql" /usr/bin/psql; \
+      ln -sf "/usr/local/pgsql-18/pg_dump" /usr/bin/pg_dump; \
+      ln -sf "/usr/local/pgsql-18/pg_dumpall" /usr/bin/pg_dumpall; \
+      ln -sf "/usr/local/pgsql-18/pg_restore" /usr/bin/pg_restore; \
+      ln -sf "/usr/local/pgsql-18/pg_config" /usr/bin/pg_config; \
     fi
 
 # Create directories and user similar to upstream image
@@ -123,11 +129,11 @@ RUN useradd -u 5050 -m -d /var/lib/pgadmin -s /sbin/nologin pgadmin || true && \
     chmod 700 /var/log/pgadmin
 
 # Create per-version symlinks for psql and tools
-RUN if [ -x "/usr/local/pgsql-17/psql" ]; then \
-      ln -sf "/usr/local/pgsql-17/psql" /usr/bin/psql; \
-      ln -sf "/usr/local/pgsql-17/pg_dump" /usr/bin/pg_dump; \
-      ln -sf "/usr/local/pgsql-17/pg_dumpall" /usr/bin/pg_dumpall; \
-      ln -sf "/usr/local/pgsql-17/pg_restore" /usr/bin/pg_restore; \
+RUN if [ -x "/usr/local/pgsql-18/psql" ]; then \
+      ln -sf "/usr/local/pgsql-18/psql" /usr/bin/psql; \
+      ln -sf "/usr/local/pgsql-18/pg_dump" /usr/bin/pg_dump; \
+      ln -sf "/usr/local/pgsql-18/pg_dumpall" /usr/bin/pg_dumpall; \
+      ln -sf "/usr/local/pgsql-18/pg_restore" /usr/bin/pg_restore; \
     fi
 
 # Expose ports and set workdir
