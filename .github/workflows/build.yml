@@ -18,6 +18,9 @@ jobs:
   build-and-scan:    
     name: Build and scan per-platform
     runs-on: ${{ matrix.runs_on }}
+    outputs:
+      commit_hash: ${{ steps.commit.outputs.short }}
+      image_name: ${{ steps.set_image_name.outputs.IMAGE_NAME }}
     environment: Build
     strategy:
       fail-fast: false
@@ -32,6 +35,7 @@ jobs:
 
     steps:
       - name: Set IMAGE_NAME using bash lowercasing
+        id: set_image_name
         run: |
           echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
 
@@ -133,11 +137,11 @@ jobs:
         uses: int128/docker-manifest-create-action@v2
         with:
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:9
+            ${{ env.REGISTRY }}/${{ needs.build-and-scan.outputs.image_name }}:latest
+            ${{ env.REGISTRY }}/${{ needs.build-and-scan.outputs.image_name }}:9
           sources: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.commit.outputs.short }}-amd64
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.commit.outputs.short }}-arm64
+            ${{ env.REGISTRY }}/${{ needs.build-and-scan.outputs.image_name }}:${{ needs.build-and-scan.outputs.commit_hash }}-amd64
+            ${{ env.REGISTRY }}/${{ needs.build-and-scan.outputs.image_name }}:${{ needs.build-and-scan.outputs.commit_hash }}-arm64
       - name: Upload each SARIF scan result to Security tab
         if: always()
         run: |
