@@ -10,21 +10,14 @@ permissions:
   contents: read
   packages: write
 
-jobs:
-  set-short-sha:
-    name: Set short SHA
-    runs-on: ubuntu-latest
-    outputs:
-      short_sha: ${{ steps.set_sha.outputs.short_sha }}
-    steps:
-      - name: Set short SHA
-        id: set_sha
-        run: echo "short_sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+env:
+  # Use docker.io for Docker Hub if empty
+  REGISTRY: ghcr.io
 
-  build-and-scan:
+jobs:
+  build-and-scan:    
     name: Build and scan per-platform
     runs-on: ${{ matrix.runs_on }}
-    needs: set-short-sha
     environment: Build
     strategy:
       fail-fast: false
@@ -38,8 +31,17 @@ jobs:
             runs_on: ubuntu-24.04-arm
 
     steps:
+      - name: Set IMAGE_NAME using bash lowercasing
+        run: |
+          echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # Get commit hash short
+      - name: Get Commit Hash
+        id: commit
+        uses: prompt/actions-commit-hash@v3
 
       - name: Create builder
         uses: docker/setup-buildx-action@v3
@@ -50,7 +52,7 @@ jobs:
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
@@ -63,7 +65,7 @@ jobs:
           push: true
           load: true
           tags: |
-            ghcr.io/kangarookube/kube-pgadmin4-azure:${{ needs.set-short-sha.outputs.short_sha }}-${{ matrix.suffix }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.commit.outputs.short }}-${{ matrix.suffix }}
           secrets: |
             rhsm_user=${{ secrets.RHSM_USER }}
             rhsm_pass=${{ secrets.RHSM_PASS }}
@@ -75,7 +77,7 @@ jobs:
       - name: Scan image for CVEs (table)
         uses: anchore/scan-action@v7
         with:
-          image: ghcr.io/kangarookube/kube-pgadmin4-azure:${{ needs.set-short-sha.outputs.short_sha }}-${{ matrix.suffix }}
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.commit.outputs.short }}-${{ matrix.suffix }}
           fail-build: false
           only-fixed: false
           severity-cutoff: medium
@@ -89,7 +91,7 @@ jobs:
       - name: Scan image for CVEs (SARIF)
         uses: anchore/scan-action@v7
         with:
-          image: ghcr.io/kangarookube/kube-pgadmin4-azure:${{ needs.set-short-sha.outputs.short_sha }}-${{ matrix.suffix }}
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.commit.outputs.short }}-${{ matrix.suffix }}
           fail-build: true
           only-fixed: true
           severity-cutoff: high
@@ -106,7 +108,7 @@ jobs:
   push-manifest:
     name: Push multi-arch manifest (only if scans passed)
     runs-on: ubuntu-latest
-    needs: [build-and-scan, set-short-sha]
+    needs: [build-and-scan]
     if: needs.build-and-scan.result == 'success'
     environment: Build
     steps:
@@ -131,10 +133,11 @@ jobs:
         uses: int128/docker-manifest-create-action@v2
         with:
           tags: |
-            ghcr.io/kangarookube/kube-pgadmin4-azure:latest
-            ghcr.io/kangarookube/kube-pgadmin4-azure:9
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:9
           sources: |
-            ghcr.io/kangarookube/kube-pgadmin4-azure:${{ needs.set-short-sha.outputs.short_sha }}-*
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.commit.outputs.short }}-amd64
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.commit.outputs.short }}-arm64
       - name: Upload each SARIF scan result to Security tab
         if: always()
         run: |

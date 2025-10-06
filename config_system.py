@@ -13,6 +13,10 @@ enable_refresh_token = os.getenv('ENABLE_SERVER_PASS_EXEC_REFRESH_TOKEN', 'false
 base_scope = "openid email profile"
 scope = f"{base_scope}{' offline_access' if enable_refresh_token else ''}"
 
+SESSION_DIGEST_METHOD = 'hashlib.sha256'
+
+MASTER_PASSWORD_HOOK = './master_password_hook.py'
+
 ENABLE_SERVER_PASS_EXEC_REFRESH_TOKEN = enable_refresh_token
 
 AUTHENTICATION_SOURCES = ['oauth2']

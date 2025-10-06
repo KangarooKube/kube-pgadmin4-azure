@@ -1,4 +1,38 @@
 #!/usr/bin/env python3
+"""
+Script to exchange an Entra ID refresh token for an access token using MSAL.
+
+This script authenticates against Azure Active Directory using environment variables
+for tenant ID, client ID, and client secret. It accepts a refresh token as a command-line
+argument and attempts to acquire a new access token for the Azure Database for PostgreSQL
+resource.
+
+Environment Variables:
+    AZURE_TENANT_ID      - Entra ID tenant ID
+    AZURE_CLIENT_ID      - Entra ID application (client) ID
+    AZURE_CLIENT_SECRET  - Entra ID application client secret
+
+Usage:
+    entra_refresh_token_password.py <refresh_token>
+
+Arguments:
+    refresh_token        - Entra ID refresh token to exchange for an access token
+
+Output:
+    Prints the acquired access token to stdout on success.
+    Prints error details to stderr and exits with non-zero status on failure.
+
+Dependencies:
+    msal (Microsoft Authentication Library for Python)
+    
+Exceptions:
+    SystemExit:
+        Raised when required environment variables are missing, when the refresh token argument is not provided,
+        or when token acquisition fails.
+
+    msal.MsalServiceError (implicit via MSAL library):
+        May be raised internally by the MSAL library if there are issues communicating with Azure AD.
+"""
 import os
 import sys
 import msal
